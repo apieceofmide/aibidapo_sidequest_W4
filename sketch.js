@@ -1,20 +1,16 @@
 /*
-Week 4 — Example 4: Playable Maze (JSON + Level class + Player class)
+Week 4 – Example 4: Playable Maze (ENHANCED WITH POWER-UPS AND COINS)
 Course: GBDA302
 Instructors: Dr. Karen Cochrane and David Han
 Date: Feb. 5, 2026
 
-This is the "orchestrator" file:
-- Loads JSON levels (preload)
-- Builds Level objects
-- Creates/positions the Player
-- Handles input + level switching
+NEW FEATURES:
+- Pink power-ups that make player glow
+- Purple coins worth 100 points (disappear after 15 seconds)
+- Score tracking
+- Sound feedback (optional - commented out if you don't have sounds)
 
-It is intentionally light on "details" because those are moved into:
-- Level.js (grid + drawing + tile meaning)
-- Player.js (position + movement rules)
-
-Based on the playable maze structure from Example 3
+This is the "orchestrator" file that ties everything together.
 */
 
 const TS = 32;
@@ -31,16 +27,53 @@ let li = 0;
 // Player instance (tile-based).
 let player;
 
+// NEW: Score tracking
+let score = 0;
+
+// NEW: Optional sound effects (you can add these later)
+// let powerUpSound;
+// let coinSound;
+
 function preload() {
   // Ensure level data is ready before setup runs.
-  levelsData = loadJSON("levels.json");
+  levelsData = loadJSON(
+    "levels.json",
+    // Success callback
+    function (data) {
+      console.log("✅ levels.json loaded successfully!");
+      console.log("Number of levels:", data.levels.length);
+    },
+    // Error callback
+    function (error) {
+      console.error("❌ Error loading levels.json:", error);
+      alert(
+        "ERROR: Could not load levels.json. Make sure it's in the same folder as index.html!",
+      );
+    },
+  );
+
+  // NEW: Load sound effects (uncomment if you have sound files)
+  // powerUpSound = loadSound("powerup.mp3");
+  // coinSound = loadSound("coin.mp3");
 }
 
 function setup() {
   /*
   Convert raw JSON grids into Level objects.
-  levelsData.levels is an array of 2D arrays. 
   */
+
+  // Check if levels.json loaded properly
+  if (!levelsData || !levelsData.levels) {
+    console.error("levelsData is undefined or missing 'levels' array!");
+    alert(
+      "ERROR: levels.json did not load correctly. Check the console (F12) for details.",
+    );
+    noLoop(); // Stop the draw loop
+    return;
+  }
+
+  console.log("✅ Setting up game with", levelsData.levels.length, "levels");
+
   levels = levelsData.levels.map((grid) => new Level(copyGrid(grid), TS));
 
   // Create a player.
@@ -52,6 +85,8 @@ function setup() {
   noStroke();
   textFont("sans-serif");
   textSize(14);
+
+  console.log("✅ Game setup complete!");
 }
 
 function draw() {
@@ -65,9 +100,28 @@ function draw() {
 }
 
 function drawHUD() {
-  // HUD matches your original idea: show level count and controls.
-  fill(0);
-  text(`Level ${li + 1}/${levels.length} — WASD/Arrows to move`, 10, 16);
+  /*
+  HUD = "Heads Up Display"
+  This shows information to the player at the top of the screen
+  */
+
+  fill(225);
+  textSize(11);
+
+  // Show level number
+  text(`Level ${li + 1}/${levels.length}`, 10, 16);
+
+  // NEW: Show score
+  text(`Score: ${score}`, 10, 25);
+
+  // Show controls
+  //text(`WASD/Arrows to move`, 10, 48);
+
+  // NEW: Show glow status
+  if (player.isGlowing) {
+    fill(255, 105, 180); // Pink text
+    text(`You are Glowing! (Literally)`, 185, 16);
+  }
 }
 
 function keyPressed() {
@@ -83,21 +137,46 @@ function keyPressed() {
   else if (keyCode === DOWN_ARROW || key === "s" || key === "S") dr = 1;
   else return; // not a movement key
 
-  // Try to move. If blocked, nothing happens.
-  const moved = player.tryMove(levels[li], dr, dc);
+  // Try to move. Returns info about what happened.
+  const result = player.tryMove(levels[li], dr, dc);
 
-  // If the player moved onto a goal tile, advance levels.
-  if (moved && levels[li].isGoal(player.r, player.c)) {
-    nextLevel();
+  // NEW: Handle item collection
+  if (result.moved) {
+    if (result.item === "powerup") {
+      // Player collected a pink power-up!
+      console.log("Collected power-up! Player is now glowing!");
+    } else if (result.item === "coin") {
+      // Player collected a purple coin!
+      score += 100; // Add 100 points
+      console.log("Collected coin! +100 points! Score:", score);
+    }
+
+    // Check if the player reached the goal
+    if (levels[li].isGoal(player.r, player.c)) {
+      nextLevel();
+    }
   }
 }
 
 // ----- Level switching -----
 
 function loadLevel(idx) {
+  /*
+  This function:
+  1. Changes to a new level
+  2. Places the player at the start
+  3. Resets the level timer
+  4. Resizes the canvas
+  */
+
   li = idx;
 
   const level = levels[li];
+
+  player.isGlowing = false; // to restart the glow at each level
+
+  // NEW: Reset the level timer (important for purple coins!)
+  level.resetTimer();
 
   // Place player at the level's start tile (2), if present.
   if (level.start) {
@@ -107,11 +186,15 @@ function loadLevel(idx) {
     player.setCell(1, 1);
   }
 
-  // Ensure the canvas matches this level’s dimensions.
+  // Ensure the canvas matches this level's dimensions.
   resizeCanvas(level.pixelWidth(), level.pixelHeight());
 }
 
 function nextLevel() {
+  /*
+  Go to the next level (or loop back to level 1)
+  */
+
   // Wrap around when we reach the last level.
   const next = (li + 1) % levels.length;
   loadLevel(next);
@@ -121,13 +204,11 @@ function nextLevel() {
 
 function copyGrid(grid) {
   /*
-  Make a deep-ish copy of a 2D array:
-  - new outer array
-  - each row becomes a new array
-
+  Make a deep-ish copy of a 2D array.
+  
   Why copy?
-  - Because Level constructor may normalize tiles (e.g., replace 2 with 0)
-  - And we don’t want to accidentally mutate the raw JSON data object. 
+  - Because Level constructor may modify tiles
+  - We don't want to change the original JSON data
   */
   return grid.map((row) => row.slice());
 }

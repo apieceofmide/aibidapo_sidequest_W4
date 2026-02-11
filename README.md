@@ -1,6 +1,6 @@
 ## Project Title
 
-GBDA302 Week 4 Example 4: layable Maze (JSON + Level class + Player class)
+GBDA302 Week 4 layable Maze Side Quest 4
 
 ---
 
@@ -12,7 +12,9 @@ Karen Cochrane and David Han
 
 ## Description
 
-Based on example 3, creates and positions the player using preloads and loadJSON files.
+Based on example 4, creates and positions the player using preloads and loadJSON files.
+
+This maze game has 3 levels, each having two collectibles: Pink Powerups and Purple Coins. The pink powerups give a temporary pink glow to the player, while the coins give 100 points and only last on teh board for 15 seconds. Players must get to the end to progress between each level
 
 ---
 
@@ -42,4 +44,4 @@ N/A
 
 The code was written by Dr. Karen Cochrane and David Han but they used GenAI to write the comments.
 
----
+## The majority of the new code and comments were made by GenAI, but any human adjustments detaield in the Process Documentation was written by Ayomide Ibidapo.
