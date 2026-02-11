@@ -6,7 +6,7 @@ GBDA302 Week 4 layable Maze Side Quest 4
 
 ## Authors
 
-Karen Cochrane and David Han
+Ayomide Ibidapo
 
 ---
 
